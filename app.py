@@ -2,7 +2,6 @@ import cv2
 import easyocr
 import json
 import os
-import matplotlib.pyplot as plt
 
 # Ensure owners.json exists with sample data
 if not os.path.exists("owners.json"):
@@ -30,12 +29,7 @@ while True:
     if not ret:
         break
 
-    # Show frame using Matplotlib instead of cv2.imshow
-    plt.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-    plt.axis("off")
-    plt.draw()
-    plt.pause(0.001)
-    plt.clf()
+    cv2.imshow("Camera Feed", frame)  # Show live feed
 
     key = cv2.waitKey(1) & 0xFF
 
@@ -58,4 +52,4 @@ while True:
         break
 
 cap.release()
-plt.close()
+cv2.destroyAllWindows()
