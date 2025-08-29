@@ -2,6 +2,9 @@ import cv2
 import easyocr
 import json
 import os
+from flask import Flask, Response, render_template, request, jsonify
+
+app = Flask(__name__)
 
 # Ensure owners.json exists with sample data
 if not os.path.exists("owners.json"):
@@ -22,34 +25,51 @@ reader = easyocr.Reader(['en'])
 # Open Camera
 cap = cv2.VideoCapture(0)
 
-print("Press 'c' to capture frame, 'q' to quit.")
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+def generate_frames():
+    """Stream camera frames to browser"""
+    while True:
+        success, frame = cap.read()
+        if not success:
+            break
+        else:
+            # Encode frame to JPEG
+            ret, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()
 
-    cv2.imshow("Camera Feed", frame)  # Show live feed
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-    key = cv2.waitKey(1) & 0xFF
 
-    # Capture frame and process
-    if key == ord('c'):
-        results = reader.readtext(frame)
+@app.route('/')
+def index():
+    return render_template('index.html')  # HTML page with video
 
-        for (bbox, text, prob) in results:
-            plate_number = text.replace(" ", "").upper()
-            print("\nDetected Number Plate:", plate_number)
 
-            # Lookup Owner Details
-            if plate_number in owners:
-                print("✅ Owner Found:", owners[plate_number])
-            else:
-                print("❌ Owner Not Found in Database")
+@app.route('/video_feed')
+def video_feed():
+    return Response(generate_frames(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
-    # Quit
-    elif key == ord('q'):
-        break
 
-cap.release()
-cv2.destroyAllWindows()
+@app.route('/capture', methods=['POST'])
+def capture():
+    """Capture current frame and run OCR"""
+    success, frame = cap.read()
+    if not success:
+        return jsonify({"error": "Failed to capture frame"}), 500
+
+    results = reader.readtext(frame)
+    detected = []
+    for (_, text, _) in results:
+        plate_number = text.replace(" ", "").upper()
+        if plate_number in owners:
+            detected.append({"plate": plate_number, "owner": owners[plate_number]})
+        else:
+            detected.append({"plate": plate_number, "owner": "Not Found"})
+
+    return jsonify(detected)
+
+
+if __name__ == '__main__':
+    app.run(debug=True)

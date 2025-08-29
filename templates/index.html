@@ -1,13 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Helmet & Number Plate Detection</title>
+    <title>Number Plate Detection</title>
 </head>
 <body>
-    <h2>Upload a Video</h2>
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="video" accept="video/*" required>
-        <button type="submit">Upload</button>
-    </form>
+    <h2>Live Camera Feed</h2>
+    <img src="{{ url_for('video_feed') }}" width="640" height="480">
+    <br><br>
+    <button onclick="captureFrame()">Capture & Detect</button>
+    <pre id="result"></pre>
+
+    <script>
+        async function captureFrame() {
+            const res = await fetch("/capture", { method: "POST" });
+            const data = await res.json();
+            document.getElementById("result").innerText = JSON.stringify(data, null, 2);
+        }
+    </script>
 </body>
 </html>
