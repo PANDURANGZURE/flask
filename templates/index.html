@@ -1,20 +1,63 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Number Plate Detection</title>
+    <meta charset="UTF-8">
+    <title>License Plate Recognition</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; }
+        h1 { background: #333; color: white; padding: 15px; }
+        #video { border: 3px solid #333; border-radius: 10px; margin-top: 20px; }
+        button { margin-top: 20px; padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        button:hover { background: #218838; }
+        #results { margin-top: 20px; font-size: 18px; }
+        .plate { font-weight: bold; color: #007bff; }
+        .owner { color: #555; }
+    </style>
 </head>
 <body>
-    <h2>Live Camera Feed</h2>
-    <img src="{{ url_for('video_feed') }}" width="640" height="480">
-    <br><br>
-    <button onclick="captureFrame()">Capture & Detect</button>
-    <pre id="result"></pre>
+    <h1>License Plate Recognition</h1>
+
+    <!-- Live video stream -->
+    <img id="video" src="{{ url_for('video_feed') }}" width="640" height="480">
+
+    <!-- Capture button -->
+    <br>
+    <button onclick="capture()">Capture & Detect Plate</button>
+
+    <!-- Results -->
+    <div id="results"></div>
 
     <script>
-        async function captureFrame() {
-            const res = await fetch("/capture", { method: "POST" });
-            const data = await res.json();
-            document.getElementById("result").innerText = JSON.stringify(data, null, 2);
+        async function capture() {
+            const response = await fetch("/capture", { method: "POST" });
+            const data = await response.json();
+
+            let resultsDiv = document.getElementById("results");
+            resultsDiv.innerHTML = "";
+
+            if (data.error) {
+                resultsDiv.innerHTML = `<p style="color:red;">${data.error}</p>`;
+                return;
+            }
+
+            data.forEach(item => {
+                if (item.owner !== "Not Found") {
+                    resultsDiv.innerHTML += `
+                        <p>
+                            🚘 Plate: <span class="plate">${item.plate}</span><br>
+                            👤 Owner: <span class="owner">${item.owner.name}</span><br>
+                            📞 Phone: <span class="owner">${item.owner.phone}</span>
+                        </p><hr>
+                    `;
+                } else {
+                    resultsDiv.innerHTML += `
+                        <p>
+                            🚘 Plate: <span class="plate">${item.plate}</span><br>
+                            ❌ Owner Not Found
+                        </p><hr>
+                    `;
+                }
+            });
         }
     </script>
 </body>

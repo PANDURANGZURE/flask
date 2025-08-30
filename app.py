@@ -9,7 +9,7 @@ app = Flask(__name__)
 # Ensure owners.json exists
 if not os.path.exists("owners.json"):
     sample_data = {
-        "TN07CY3098": {"name": "Rahul Kumar", "phone": "9876543210"},
+        "TNOZC3098": {"name": "Rahul Kumar", "phone": "9876543210"},
         "MH12AB1234": {"name": "Sneha Patil", "phone": "9123456780"}
     }
     with open("owners.json", "w") as f:
@@ -63,10 +63,18 @@ def capture():
     if not success:
         return jsonify({"error": "Failed to capture frame"}), 500
 
-    # Convert to RGB for EasyOCR
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    # --- Preprocessing for better OCR ---
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)        # Convert to grayscale
+    gray = cv2.bilateralFilter(gray, 11, 17, 17)          # Noise reduction
+    edged = cv2.Canny(gray, 30, 200)                      # Edge detection
 
-    results = reader.readtext(frame)
+    # OCR expects RGB
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    results = reader.readtext(rgb)
+
+    print("OCR Raw Results:", results)  # Debugging
+
     detected = []
     for (_, text, _) in results:
         plate_number = text.replace(" ", "").upper()
@@ -74,6 +82,9 @@ def capture():
             detected.append({"plate": plate_number, "owner": owners[plate_number]})
         else:
             detected.append({"plate": plate_number, "owner": "Not Found"})
+
+    if not detected:
+        return jsonify({"error": "No text detected"}), 200
 
     return jsonify(detected)
 
