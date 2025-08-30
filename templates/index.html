@@ -1,64 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>License Plate Recognition</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; }
-        h1 { background: #333; color: white; padding: 15px; }
-        #video { border: 3px solid #333; border-radius: 10px; margin-top: 20px; }
-        button { margin-top: 20px; padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; }
-        button:hover { background: #218838; }
-        #results { margin-top: 20px; font-size: 18px; }
-        .plate { font-weight: bold; color: #007bff; }
-        .owner { color: #555; }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Number Plate Detection</title>
+  <style>
+    body { font-family: system-ui, Arial; background:#fafafa; text-align:center; }
+    h1 { background:#111; color:#fff; padding:12px; margin:0 0 16px; }
+    #video { border:3px solid #111; border-radius:10px; }
+    button { margin:16px 6px; padding:10px 18px; border:0; border-radius:8px; cursor:pointer; }
+    .primary { background:#2563eb; color:#fff; }
+    .results { max-width:800px; margin:0 auto; text-align:left; }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:12px; margin:10px 0; }
+    .plate { font-weight:700; font-size:18px; }
+    .owner { color:#374151; }
+    .err { color:#dc2626; font-weight:600; }
+    .muted { color:#6b7280; }
+  </style>
 </head>
 <body>
-    <h1>License Plate Recognition</h1>
+  <h1>Number Plate Detection</h1>
 
-    <!-- Live video stream -->
-    <img id="video" src="{{ url_for('video_feed') }}" width="640" height="480">
+  <img id="video" src="{{ url_for('video_feed') }}" width="640" height="480" alt="Live camera" />
+  <div>
+    <button class="primary" onclick="capture()">Capture & Detect</button>
+  </div>
 
-    <!-- Capture button -->
-    <br>
-    <button onclick="capture()">Capture & Detect Plate</button>
+  <div id="results" class="results"></div>
 
-    <!-- Results -->
-    <div id="results"></div>
+  <script>
+    async function capture() {
+      const res = await fetch("/capture", { method: "POST" });
+      const data = await res.json();
+      const el = document.getElementById("results");
+      el.innerHTML = "";
 
-    <script>
-        async function capture() {
-            const response = await fetch("/capture", { method: "POST" });
-            const data = await response.json();
+      if (data.error) {
+        el.innerHTML = `<p class="err">${data.error}</p>`;
+        return;
+      }
 
-            let resultsDiv = document.getElementById("results");
-            resultsDiv.innerHTML = "";
+      if (!Array.isArray(data) || data.length === 0) {
+        el.innerHTML = `<p class="muted">No results.</p>`;
+        return;
+      }
 
-            if (data.error) {
-                resultsDiv.innerHTML = `<p style="color:red;">${data.error}</p>`;
-                return;
-            }
+      data.forEach(item => {
+        const ownerHtml = (typeof item.owner === "object")
+          ? `<div class="owner">👤 ${item.owner.name} &middot; 📞 ${item.owner.phone}</div>`
+          : `<div class="owner">❌ Owner Not Found</div>`;
 
-            data.forEach(item => {
-                if (item.owner !== "Not Found") {
-                    resultsDiv.innerHTML += `
-                        <p>
-                            🚘 Plate: <span class="plate">${item.plate}</span><br>
-                            👤 Owner: <span class="owner">${item.owner.name}</span><br>
-                            📞 Phone: <span class="owner">${item.owner.phone}</span>
-                        </p><hr>
-                    `;
-                } else {
-                    resultsDiv.innerHTML += `
-                        <p>
-                            🚘 Plate: <span class="plate">${item.plate}</span><br>
-                            ❌ Owner Not Found
-                        </p><hr>
-                    `;
-                }
-            });
-        }
-    </script>
+        el.innerHTML += `
+          <div class="card">
+            <div class="plate">🚘 ${item.plate}</div>
+            <div class="muted">Confidence: ${item.confidence ?? 0}</div>
+            ${ownerHtml}
+            ${item.bbox ? `<div class="muted">BBox: [${item.bbox.join(", ")}]</div>` : ""}
+          </div>
+        `;
+      });
+    }
+  </script>
 </body>
 </html>
