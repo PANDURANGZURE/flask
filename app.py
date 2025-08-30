@@ -6,10 +6,10 @@ from flask import Flask, Response, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# Ensure owners.json exists with sample data
+# Ensure owners.json exists
 if not os.path.exists("owners.json"):
     sample_data = {
-        "KA20.1025": {"name": "Rahul Kumar", "phone": "9876543210"},
+        "TN07CY3098": {"name": "Rahul Kumar", "phone": "9876543210"},
         "MH12AB1234": {"name": "Sneha Patil", "phone": "9123456780"}
     }
     with open("owners.json", "w") as f:
@@ -22,42 +22,49 @@ with open("owners.json", "r") as f:
 # Initialize OCR Reader
 reader = easyocr.Reader(['en'])
 
-# Open Camera
-cap = cv2.VideoCapture(0)
-
-
 def generate_frames():
     """Stream camera frames to browser"""
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("❌ Camera not opened")
+        return
+
     while True:
         success, frame = cap.read()
         if not success:
             break
         else:
-            # Encode frame to JPEG
             ret, buffer = cv2.imencode('.jpg', frame)
             frame = buffer.tobytes()
 
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-
+    cap.release()
 
 @app.route('/')
 def index():
-    return render_template('index.html')  # HTML page with video
-
+    return render_template('index.html')
 
 @app.route('/video_feed')
 def video_feed():
     return Response(generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
-
 @app.route('/capture', methods=['POST'])
 def capture():
     """Capture current frame and run OCR"""
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        return jsonify({"error": "Camera not available"}), 500
+
     success, frame = cap.read()
+    cap.release()
+
     if not success:
         return jsonify({"error": "Failed to capture frame"}), 500
+
+    # Convert to RGB for EasyOCR
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     results = reader.readtext(frame)
     detected = []
@@ -69,7 +76,6 @@ def capture():
             detected.append({"plate": plate_number, "owner": "Not Found"})
 
     return jsonify(detected)
-
 
 if __name__ == '__main__':
     app.run(debug=True)
